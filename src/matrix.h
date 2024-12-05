@@ -1,6 +1,8 @@
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 typedef struct {
     int ncols;
@@ -41,4 +43,42 @@ static inline double_matrix_t matrix_mult2(double_matrix_t m1, double_matrix_t m
     double_matrix_t out = matrix_allocate(m1.nrows, m2.ncols);
     matrix_mult3(m1, m2, out);
     return out;
+}
+
+static inline size_t matrix_serialized_size(double_matrix_t m) {
+    return sizeof(double_matrix_t) + sizeof(double) * m.ncols * m.nrows;
+}
+
+static inline void matrix_serialize_to_buffer_inplace(void *buf, double_matrix_t m) {
+    int *ncols = (int *) buf;
+    int *nrows = (int *) (buf + sizeof(int));
+    void *data = buf + 2 * sizeof(int);
+
+    *ncols = m.ncols;
+    *nrows = m.nrows;
+    memcpy(data, m.data, m.ncols * m.nrows * sizeof(double));
+}
+
+static inline void *matrix_serialize_to_buffer(double_matrix_t m) {
+    size_t size = matrix_serialized_size(m);
+    void *buf = malloc(size);
+    matrix_serialize_to_buffer_inplace(buf, m);
+    return buf;
+}
+
+static inline void matrix_deserialize_from_buffer_inplace(void *buf, double_matrix_t *m) {
+    int *ncols = (int *) buf;
+    int *nrows = (int *) (buf + sizeof(int));
+    void *data = buf + 2 * sizeof(int);
+
+    m->ncols = *ncols;
+    m->nrows = *nrows;
+    m->data = malloc(m->ncols * m->nrows * sizeof(double));
+    memcpy(m->data, data, m->ncols * m->nrows * sizeof(double));
+}
+
+static inline double_matrix_t matrix_deserialize_from_buffer(void *buf) {
+    double_matrix_t m;
+    matrix_deserialize_from_buffer_inplace(buf, &m);
+    return m;
 }

@@ -164,11 +164,26 @@ int main(int argc, char *argv[]) {
     double_matrix_t Bi[MAX_ITERS + 1];
     Bi[0] = B;
     for (int i = 1; i < MAX_ITERS + 1; i++) {
+        Bi[i] = matrix_mult2(Bi[i - 1], B);
+    }
+
+    double partial_results[MAX_ITERS + 1];
+    for (int i = 1; i < MAX_ITERS + 1; i++) {
+#ifdef PARALLEL
+        #pragma omp task shared(partial_results, Bi, x, y)
+#endif 
+        {
         double_matrix_t Bx = matrix_mult2(Bi[i - 1], x);
         double_matrix_t scal_prod_Bx_y = matrix_mult2(y, Bx);
 
-        A += matrix_get(scal_prod_Bx_y, 0, 0) / matrix_get(scal_prod_x_y, 0, 0);
-        Bi[i] = matrix_mult2(Bi[i - 1], B);
+        partial_results[i] = matrix_get(scal_prod_Bx_y, 0, 0) / matrix_get(scal_prod_x_y, 0, 0);
+        }
+    }
+#ifdef PARALLEL
+    #pragma omp taskwait
+#endif 
+    for (int i = 1; i < MAX_ITERS + 1; i++) {
+        A += partial_results[i];
     }
 #endif
 
